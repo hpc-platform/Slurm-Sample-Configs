@@ -1,0 +1,140 @@
+# ─── CLUSTER IDENTITY ──────────────────────────────────────────────────────────
+ClusterName=slurm-cluster-01          # Logical name of this Slurm cluster
+ControlMachine=slurm-master-a1        # Hostname of the primary Slurm controller (slurmctld)
+#ControlAddr=10.0.1.234               # (disabled) Explicit IP if hostname is ambiguous
+
+# ─── SERVICE ACCOUNTS ──────────────────────────────────────────────────────────
+SlurmUser=slurm                       # OS user that slurmctld runs as
+#SlurmdUser=slurm                     # (disabled) slurmd would run as slurm user
+SlurmdUser=root                       # slurmd runs as root (required for cgroup enforcement)
+#LaunchParameters=enable_userless     # (disabled) Allow jobs without a valid user account
+
+# ─── PORTS & AUTH ──────────────────────────────────────────────────────────────
+SlurmctldPort=6817                    # TCP port the controller listens on
+SlurmdPort=6818                       # TCP port each compute node daemon listens on
+AuthType=auth/munge                   # Authentication plugin; MUNGE shared key across nodes
+
+# ─── STATE & SPOOL DIRECTORIES ─────────────────────────────────────────────────
+StateSaveLocation=/var/spool/slurm/ctld   # Where slurmctld saves cluster state for restart recovery
+SlurmdSpoolDir=/var/spool/slurm/d         # Per-node working directory for job steps and scripts
+
+# ─── LOGGING ──────────────────────────────────────────────────────────────────
+SlurmdLogFile=/var/log/slurm/slurmd.log       # Log file for the slurmd daemon on compute nodes
+SlurmdDebug=debug                             # Log verbosity for slurmd (debug = very verbose)
+SlurmctldLogFile=/var/log/slurm/slurmctld.log # Log file for the slurmctld controller daemon
+SlurmctldDebug=debug                          # Log verbosity for slurmctld (debug = very verbose)
+
+# ─── NETWORKING & MPI ─────────────────────────────────────────────────────────
+SwitchType=switch/none                # No special interconnect switch plugin (basic Ethernet)
+MpiDefault=none                       # No default MPI library; user must specify if needed
+
+# ─── PID FILES ────────────────────────────────────────────────────────────────
+SlurmctldPidFile=/var/run/slurm/slurmctld.pid # PID file for the controller daemon
+SlurmdPidFile=/var/run/slurm/slurmd.pid       # PID file for each compute node daemon
+
+# ─── JOB ACCOUNTING & TRACKING ────────────────────────────────────────────────
+# How often to collect data (in seconds)
+JobAcctGatherFrequency=30             # Collect job resource usage stats every 30 seconds
+# The plugin itself
+JobAcctGatherType=jobacct_gather/cgroup  # Use Linux cgroups to gather per-job CPU/mem usage
+ProctrackType=proctrack/cgroup           # Track job processes using cgroups (required for OOM/kill)
+TaskPlugin=task/affinity,task/cgroup     # Bind tasks to CPUs (affinity) and enforce cgroup limits
+
+# ─── TIMEOUTS & LIMITS ────────────────────────────────────────────────────────
+SlurmctldTimeout=300                  # Seconds before a backup controller takes over (HA)
+SlurmdTimeout=300                     # Seconds controller waits before marking a node DOWN
+InactiveLimit=0                       # Disable auto-cancel of idle interactive sessions (0=never)
+MinJobAge=300                         # Keep completed job records for 300 seconds before cleanup
+KillWait=30                           # Seconds to wait after SIGTERM before sending SIGKILL on cancel
+Waittime=0                            # No extra wait before first job launch attempt
+
+# ─── SCHEDULING ───────────────────────────────────────────────────────────────
+SchedulerType=sched/backfill          # Use backfill scheduler to start low-priority jobs in gaps
+SelectType=select/cons_tres           # Consumable resource selection (tracks CPUs, mem, GPUs, etc.)
+SelectTypeParameters=CR_CPU_Memory    # Allocate jobs by individual CPUs and memory (not whole nodes)
+DefMemPerCPU=100                      # Default memory per CPU (MB) if user doesn't specify --mem
+MaxMemPerCPU=400                      # Hard cap on memory per CPU (MB) a user can request
+
+#FastSchedule=1                       # (disabled/deprecated) Old option to skip node validation
+
+# ─── ACCOUNTING STORAGE ───────────────────────────────────────────────────────
+AccountingStorageType=accounting_storage/slurmdbd  # Use SlurmDBD for persistent accounting database
+#AccountingStorageType=accounting_storage/none     # (disabled) Would disable all accounting
+AccountingStorageHost=slurm-master-a1              # Hostname where slurmdbd is running
+AccountingStoragePort=6819                         # TCP port slurmdbd listens on
+
+# ─── JOB COMPLETION LOGGING ───────────────────────────────────────────────────
+JobCompType=jobcomp/mysql             # Log job completion records to a MySQL database
+#JobCompType=jobcomp/none             # (disabled) Would skip job completion logging
+JobCompHost=localhost                 # MySQL server hostname for job completion data
+JobCompPort=3306                      # MySQL port
+JobCompUser=slurm                     # MySQL user for job completion writes
+JobCompPass=tushar                    # MySQL password for job completion user
+#JobCompDB=slurm_acct_db/mysql        # (disabled) Alternate DB name syntax
+JobCompLoc=slurm_acct_db              # MySQL database name for job completion records
+
+MailProg=/usr/bin/mail                # Binary used to send job notification emails to users
+
+# ─── GPU CONFIGURATION ────────────────────────────────────────────────────────
+GresTypes=gpu                         # Register 'gpu' as a Generic Resource (GRES) type
+
+# ─── COMPUTE NODES ────────────────────────────────────────────────────────────
+#NodeName=slurm-compute-a1 Gres=gpu:2 CPUs=2 Sockets=1 CoresPerSocket=1 ThreadsPerCore=2 RealMemory=800 State=UNKNOWN
+#NodeName=slurm-compute-a2 CPUs=2 Sockets=1 CoresPerSocket=1 ThreadsPerCore=2 RealMemory=400 State=UNKNOWN
+# (disabled alternates above; active definitions below)
+
+NodeName=slurm-compute-a1 CPUs=2 Boards=1 Sockets=1 CoresPerSocket=1 ThreadsPerCore=2 RealMemory=800 Gres=gpu:2 State=UNKNOWN
+# a1: 2 CPUs, 800MB RAM, 2 virtual GPUs (GRES), starts in UNKNOWN until slurmd checks in
+
+NodeName=slurm-compute-a2 CPUs=2 Boards=1 Sockets=1 CoresPerSocket=1 ThreadsPerCore=2 RealMemory=400 State=UNKNOWN
+# a2: 2 CPUs, 400MB RAM, no GPU, starts in UNKNOWN until slurmd checks in
+
+# ─── PARTITIONS ───────────────────────────────────────────────────────────────
+PartitionName=compute Nodes=slurm-compute-a[1-2] Default=YES MaxTime=INFINITE State=UP Priority=100 OverSubscribe=YES
+# Default general-purpose partition; both nodes; no time limit; CPU oversubscription allowed
+
+PartitionName=debug Nodes=slurm-compute-a1 MaxTime=30:00 State=UP Priority=200 MaxNodes=1 OverSubscribe=YES
+# Short-lived debug partition on a1 only; max 30min walltime; highest priority for quick tests
+
+PartitionName=long Nodes=slurm-compute-a[1-2] MaxTime=7-00:00:00 State=UP Priority=50 OverSubscribe=YES
+# Long-running jobs partition; both nodes; up to 7 days; lowest priority tier
+
+PartitionName=gpu Nodes=slurm-compute-a1 Default=NO MaxTime=INFINITE State=UP
+# GPU partition restricted to a1 (which has Gres=gpu:2); not the default partition
+
+# ─── PRIORITY / FAIR-SHARE ────────────────────────────────────────────────────
+PriorityType=priority/multifactor     # Use multi-factor priority (age, fairshare, QOS, size, etc.)
+PriorityDecayHalfLife=14-0            # Fairshare usage decays to half its weight over 14 days and 0 hours
+PriorityFavorSmall=NO                 # Do NOT boost priority of smaller/shorter jobs
+PriorityMaxAge=7-0                    # Jobs gain age-based priority for a maximum of 7 days
+PriorityUsageResetPeriod=weekly       # Reset fairshare usage counters every week
+PriorityWeightAge=1000                # Weight of job age in priority calculation
+PriorityWeightFairshare=10000         # Weight of fair-share usage (dominant factor here)
+PriorityWeightJobSize=1000            # Weight of job size (larger jobs get slight boost)
+PriorityWeightPartition=1000          # Weight of partition priority factor
+PriorityWeightQOS=2000                # Weight of QOS priority (second-highest factor)
+
+# Account-based priority configuration
+AccountingStorageEnforce=limits,qos,safe
+# limits: enforce account/user resource limits; qos: jobs must have valid QOS; safe: only start if job can run to completion
+
+# ─── ADVANCED BACKFILL SCHEDULING ─────────────────────────────────────────────
+# (First SchedulerParameters overridden by second active line below)
+SchedulerParameters=default_queue_depth=100,max_switch_wait=300,partition_job_depth=50
+# (disabled)
+
+SchedulerParameters=bf_interval=30,bf_window=1440,bf_max_job_user=20,default_queue_depth=100,partition_job_depth=500,bf_continue
+# bf_interval=30: run backfill every 30s
+# bf_window=1440: look 1440 min (24h) ahead for gaps
+# bf_max_job_user=20: consider up to 20 pending jobs per user for backfill
+# default_queue_depth=100: evaluate top 100 jobs in main queue each cycle
+# partition_job_depth=500: evaluate up to 500 jobs per partition in backfill
+# bf_continue: don't restart backfill scan after each job start (faster)
+
+#SchedulerParameters=bf_continue,bf_max_job_test=1000,...  # (disabled) alternate verbose config
+
+# ─── JOB & ARRAY LIMITS ───────────────────────────────────────────────────────
+MaxArraySize=10000                    # Maximum number of tasks in a single job array
+MaxJobCount=100000                    # Maximum total jobs (pending + running) in the system
+MaxStepCount=40000                    # Maximum number of active job steps across all jobs
+MaxTasksPerNode=128                   # Maximum parallel tasks Slurm will place on a single node
